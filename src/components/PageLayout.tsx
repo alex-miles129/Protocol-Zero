@@ -17,15 +17,18 @@ export function PageLayout({ children }: PageLayoutProps) {
             <p className="text-sm text-foreground/60">
               © {new Date().getFullYear()} Protocol: Zero. All rights reserved.
             </p>
-            <div className="flex items-center space-x-4">
-              <a href="#" className="text-sm text-foreground/60 hover:text-foreground transition-colors">
-                Privacy Policy
+            <div className="flex items-center space-x-4 flex-wrap justify-center">
+              <a href="/terms" className="text-sm text-foreground/60 hover:text-foreground transition-colors">
+                Terms and Conditions
               </a>
-              <a href="#" className="text-sm text-foreground/60 hover:text-foreground transition-colors">
-                Terms of Service
+              <a href="/shipping" className="text-sm text-foreground/60 hover:text-foreground transition-colors">
+                Shipping
               </a>
-              <a href="#" className="text-sm text-foreground/60 hover:text-foreground transition-colors">
-                Contact
+              <a href="/privacy" className="text-sm text-foreground/60 hover:text-foreground transition-colors">
+                Privacy
+              </a>
+              <a href="/contact" className="text-sm text-foreground/60 hover:text-foreground transition-colors">
+                Contact Us
               </a>
             </div>
           </div>
