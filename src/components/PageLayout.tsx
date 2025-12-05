@@ -27,7 +27,7 @@ export function PageLayout({ children }: PageLayoutProps) {
               <a href="/privacy" className="text-sm text-foreground/60 hover:text-foreground transition-colors">
                 Privacy
               </a>
-              <a href="/contact" className="text-sm text-foreground/60 hover:text-foreground transition-colors">
+              <a href="/contact-us" className="text-sm text-foreground/60 hover:text-foreground transition-colors">
                 Contact Us
               </a>
             </div>
