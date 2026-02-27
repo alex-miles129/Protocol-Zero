@@ -36,6 +36,11 @@ export function PaymentModal({
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [ticketId, setTicketId] = useState<string | null>(null);
   const [showUpiQr, setShowUpiQr] = useState(false);
+  const [userMarkedPaid, setUserMarkedPaid] = useState(false);
+  const [userTransactionId, setUserTransactionId] = useState('');
+  const [reportedTransactionId, setReportedTransactionId] = useState<string | null>(null);
+  const [isReportingPayment, setIsReportingPayment] = useState(false);
+  const [hasSubmittedTxn, setHasSubmittedTxn] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -45,6 +50,11 @@ export function PaymentModal({
       setPaymentId(null);
       setTicketId(null);
       setShowUpiQr(false);
+      setUserMarkedPaid(false);
+      setUserTransactionId('');
+      setReportedTransactionId(null);
+      setIsReportingPayment(false);
+      setHasSubmittedTxn(false);
     }
   }, [open]);
 
@@ -77,113 +87,126 @@ export function PaymentModal({
     return statusResponse.json();
   };
 
-  const completePayment = async () => {
-    setIsProcessing(true);
-    setPaymentStatus('processing');
-
-    try {
-      // If already acknowledged on server (e.g. second click/race), show success directly.
-      const currentStatus = await fetchOrderStatus();
-      if (currentStatus?.status === 'completed' || currentStatus?.status === 'processing') {
-        markPaymentSuccess(currentStatus.paymentId, currentStatus.ticketId);
-        return;
-      }
-
-      // Process payment
-      const response = await fetch('/api/payment/process', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId,
-          amount,
-          currency,
-          method: 'upi',
-          paymentDetails: {
-            method: 'upi',
-            upiUri: upiPaymentUri,
-          },
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Payment processing failed');
-      }
-
-      // Verify payment
-      const verifyResponse = await fetch('/api/payment/verify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId,
-          paymentId: data.paymentId,
-          signature: data.signature,
-        }),
-      });
-
-      const verifyData = await verifyResponse.json();
-
-      if (!verifyResponse.ok || !verifyData.verified) {
-        // In this demo flow, if order has moved to processing/completed, treat as success.
-        const latestStatus = await fetchOrderStatus();
-        if (latestStatus?.status === 'completed' || latestStatus?.status === 'processing') {
-          markPaymentSuccess(latestStatus.paymentId || data.paymentId, latestStatus.ticketId || verifyData?.ticket?.ticketId);
-          return;
-        }
-        throw new Error('Payment verification failed');
-      }
-
-      markPaymentSuccess(data.paymentId, verifyData?.ticket?.ticketId);
-    } catch (error: any) {
-      console.error('Payment error:', error);
-      const errorMessage = error?.message || 'An error occurred during payment processing';
-
-      // Convert duplicate-verify case to success.
-      if (errorMessage.toLowerCase().includes('already been paid')) {
-        const currentStatus = await fetchOrderStatus();
-        if (currentStatus?.status === 'completed' || currentStatus?.status === 'processing') {
-          markPaymentSuccess(currentStatus.paymentId, currentStatus.ticketId);
-          return;
-        }
-      }
-
-      setPaymentStatus('failed');
-      toast({
-        title: 'Payment Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-      onError(errorMessage || 'Payment failed');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const handlePayment = async () => {
     // First click generates QR only
     if (!showUpiQr) {
       setShowUpiQr(true);
+      setPaymentStatus('processing');
       return;
     }
   };
 
   useEffect(() => {
-    if (!showUpiQr || paymentStatus !== 'idle' || isProcessing) {
+    if (!open || !showUpiQr || paymentStatus === 'success' || paymentStatus === 'failed') {
       return;
     }
 
-    // Auto-attempt verification shortly after QR is shown.
-    const autoVerifyTimer = setTimeout(() => {
-      void completePayment();
-    }, 12000);
+    let active = true;
 
-    return () => clearTimeout(autoVerifyTimer);
-  }, [showUpiQr, paymentStatus, isProcessing]);
+    const checkPaymentStatus = async () => {
+      setIsProcessing(true);
+      try {
+        const currentStatus = await fetchOrderStatus();
+        if (!active || !currentStatus) {
+          return;
+        }
+
+        if (currentStatus.status === 'completed') {
+          markPaymentSuccess(currentStatus.paymentId, currentStatus.ticketId);
+          return;
+        }
+
+        if (currentStatus.transactionId && !reportedTransactionId) {
+          setReportedTransactionId(currentStatus.transactionId);
+        }
+
+        if (currentStatus.status === 'failed' || currentStatus.status === 'cancelled') {
+          setPaymentStatus('failed');
+          onError('Payment failed');
+          return;
+        }
+
+        if (currentStatus.expiresAt && new Date(currentStatus.expiresAt) < new Date()) {
+          setPaymentStatus('failed');
+          onError('Order has expired before payment confirmation.');
+          return;
+        }
+
+        setPaymentStatus('processing');
+      } catch (error: any) {
+        if (!active) {
+          return;
+        }
+        toast({
+          title: 'Payment Status Check Failed',
+          description: error?.message || 'Unable to check payment status right now.',
+          variant: 'destructive',
+        });
+      } finally {
+        if (active) {
+          setIsProcessing(false);
+        }
+      }
+    };
+
+    void checkPaymentStatus();
+    const pollTimer = setInterval(() => {
+      void checkPaymentStatus();
+    }, 5000);
+
+    return () => {
+      active = false;
+      clearInterval(pollTimer);
+    };
+  }, [open, showUpiQr, paymentStatus]);
+
+  const handleReportPayment = async () => {
+    const trimmedTxn = userTransactionId.trim();
+    if (!trimmedTxn) {
+      toast({
+        title: 'Transaction ID required',
+        description: 'Please enter your UTR / Transaction ID.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsReportingPayment(true);
+    try {
+      const response = await fetch('/api/payment/report-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId,
+          transactionId: trimmedTxn,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to report payment');
+      }
+
+      setReportedTransactionId(data.transactionId || trimmedTxn);
+      setPaymentId(data.paymentId || null);
+      setHasSubmittedTxn(true);
+
+      toast({
+        title: 'Payment marked by user',
+        description: 'Details saved. Please reach out in ticket for verification.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Unable to save payment details',
+        description: error?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsReportingPayment(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -231,10 +254,31 @@ export function PaymentModal({
             <div className="text-center space-y-2">
               <h3 className="text-2xl font-semibold">Payment Failed</h3>
               <p className="text-muted-foreground">
-                Your payment could not be processed. Please try again.
+                Your payment could not be confirmed. Please try again.
               </p>
               <Button onClick={() => setPaymentStatus('idle')} className="mt-4">
                 Try Again
+              </Button>
+            </div>
+          </div>
+        ) : hasSubmittedTxn ? (
+          <div className="flex flex-col items-center justify-center py-16 space-y-4">
+            <div className="rounded-full bg-green-500/10 p-4">
+              <CheckCircle2 className="h-14 w-14 text-green-500 animate-pulse" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-2xl font-semibold text-green-500">User Confirmed</h3>
+              <p className="text-muted-foreground">
+                Reach out in ticket.
+              </p>
+            </div>
+            <div className="w-full pt-4">
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                className="w-full"
+              >
+                Close
               </Button>
             </div>
           </div>
@@ -287,7 +331,7 @@ export function PaymentModal({
                       Scan this QR in any UPI app. Amount is auto-filled for this order.
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Auto verification will run in a few seconds after payment.
+                      Waiting for payment confirmation from server...
                     </p>
                     <div className="flex justify-center">
                       <img
@@ -302,6 +346,49 @@ export function PaymentModal({
                       <Label htmlFor="upiLink">UPI Payment Link</Label>
                       <Input id="upiLink" value={upiPaymentUri} readOnly />
                     </div>
+                    <Button
+                      type="button"
+                      variant="default"
+                      onClick={() => setUserMarkedPaid(true)}
+                      className="w-full bg-white text-black hover:bg-white/90"
+                    >
+                      I Have Paid
+                    </Button>
+                    {userMarkedPaid && (
+                      <>
+                        {!hasSubmittedTxn ? (
+                          <div className="rounded-md border p-3 text-sm space-y-2">
+                            <p><strong>Order ID:</strong> {orderId}</p>
+                            <div className="space-y-1">
+                              <Label htmlFor="utrInput">Transaction ID (UTR)</Label>
+                              <Input
+                                id="utrInput"
+                                placeholder="Enter UTR / TXN ID"
+                                value={userTransactionId}
+                                onChange={(e) => setUserTransactionId(e.target.value)}
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              onClick={handleReportPayment}
+                              disabled={isReportingPayment}
+                              className="w-full"
+                            >
+                              {isReportingPayment ? 'Saving...' : 'Submit Transaction ID'}
+                            </Button>
+                            <p>
+                              <strong>TXN ID:</strong> {reportedTransactionId || userTransactionId.trim() || 'Not available yet'}
+                            </p>
+                            <p>
+                              <strong>Payment ID:</strong> {paymentId || 'Not available yet'}
+                            </p>
+                            <p className="text-muted-foreground">
+                              Payment confirmed by user. Please reach out in ticket.
+                            </p>
+                          </div>
+                        ) : null}
+                      </>
+                    )}
                   </div>
                 )}
               </CardContent>

@@ -182,12 +182,6 @@ export async function processPayment(
   // Simulate payment processing delay
   await new Promise(resolve => setTimeout(resolve, 1500));
 
-  // For current UPI QR flow, keep success deterministic in simulation mode.
-  if (method === 'upi') {
-    const paymentId = generatePaymentId(orderId);
-    return { success: true, paymentId };
-  }
-  
   // Simulate payment success (95% success rate for demo)
   const success = Math.random() > 0.05;
   

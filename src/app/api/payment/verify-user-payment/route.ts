@@ -6,6 +6,8 @@ type PaymentOrder = {
   userId: string;
   status: string;
   paymentId?: string;
+  userReportedTxnId?: string;
+  userReportedAt?: string;
   verifiedAt?: string;
   createdAt?: string;
   amount?: number;
@@ -15,8 +17,9 @@ function findLatestPaidOrder(discordUserId: string): PaymentOrder | null {
   const paidOrders = Array.from(orders.values()).filter((order: any) => {
     return (
       order.userId === discordUserId &&
-      (order.status === 'completed' || order.status === 'processing') &&
-      order.paymentId
+      order.status !== 'failed' &&
+      order.status !== 'cancelled' &&
+      (order.paymentId || order.userReportedTxnId)
     );
   }) as PaymentOrder[];
 
@@ -25,8 +28,12 @@ function findLatestPaidOrder(discordUserId: string): PaymentOrder | null {
   }
 
   paidOrders.sort((a, b) => {
-    const aTs = Date.parse(a.verifiedAt || a.createdAt || '1970-01-01T00:00:00.000Z');
-    const bTs = Date.parse(b.verifiedAt || b.createdAt || '1970-01-01T00:00:00.000Z');
+    const aTs = Date.parse(
+      a.verifiedAt || a.userReportedAt || a.createdAt || '1970-01-01T00:00:00.000Z'
+    );
+    const bTs = Date.parse(
+      b.verifiedAt || b.userReportedAt || b.createdAt || '1970-01-01T00:00:00.000Z'
+    );
     return bTs - aTs;
   });
 
@@ -56,12 +63,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, paid: false });
     }
 
+    const isConfirmed = latestOrder.status === 'completed';
+    const isUserReported = Boolean(latestOrder.userReportedTxnId);
+
     return NextResponse.json({
       success: true,
-      paid: true,
+      paid: isConfirmed || isUserReported,
+      paymentReported: isUserReported,
+      paymentConfirmed: isConfirmed,
+      status: latestOrder.status,
       orderId: latestOrder.orderId,
-      transactionId: latestOrder.paymentId,
-      paidAt: latestOrder.verifiedAt || latestOrder.createdAt || null,
+      transactionId: latestOrder.userReportedTxnId || latestOrder.paymentId || null,
+      paymentId: latestOrder.paymentId || null,
+      paidAt:
+        latestOrder.verifiedAt || latestOrder.userReportedAt || latestOrder.createdAt || null,
       amount: latestOrder.amount ?? null,
     });
   } catch (error: any) {

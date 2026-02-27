@@ -50,6 +50,8 @@ export async function GET(request: Request) {
       createdAt: order.createdAt,
       expiresAt: order.expiresAt,
       paymentId: order.paymentId || null,
+      transactionId: order.userReportedTxnId || null,
+      userReportedAt: order.userReportedAt || null,
       paymentMethod: order.paymentMethod || null,
       ticketId: order.ticketId || null,
     });
