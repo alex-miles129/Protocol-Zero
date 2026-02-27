@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useBasket } from '@/contexts/BasketContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { X, Plus, Minus, ShoppingCart } from 'lucide-react';
+import { X, Plus, Minus, ShoppingCart, Loader2 } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -13,28 +13,85 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { PaymentModal } from '@/components/PaymentModal';
+import { useToast } from '@/components/ui/use-toast';
 
 export function Basket() {
   const { items, removeFromBasket, updateQuantity, getTotal, getItemCount, clearBasket } = useBasket();
   const total = getTotal();
   const itemCount = getItemCount();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const handleCheckout = () => {
-    // In a real application, this would redirect to a payment processor
-    // For now, we'll just show an alert
+  const handleCheckout = async () => {
     if (items.length === 0) {
-      alert('Your basket is empty!');
+      toast({
+        title: 'Basket Empty',
+        description: 'Your basket is empty. Add items to proceed.',
+        variant: 'destructive',
+      });
       return;
     }
-    
-    const itemsList = items.map(item => 
-      `${item.name} x${item.quantity} - ₹${(item.price * item.quantity).toFixed(2)}`
-    ).join('\n');
-    
-    alert(`Checkout Summary:\n\n${itemsList}\n\nTotal: ₹${total.toFixed(2)}\n\nRedirecting to payment...`);
-    
-    // Clear basket after checkout
+
+    setIsProcessing(true);
+
+    try {
+      // Create order on server
+      const response = await fetch('/api/payment/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: total,
+          items: items.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          currency: 'INR',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create order');
+      }
+
+      // Open payment modal
+      setOrderId(data.orderId);
+      setShowPaymentModal(true);
+    } catch (error: any) {
+      console.error('Checkout error:', error);
+      toast({
+        title: 'Checkout Failed',
+        description: error.message || 'Failed to initiate payment. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handlePaymentSuccess = (paymentId: string, orderId: string) => {
+    toast({
+      title: 'Payment Successful!',
+      description: `Your payment has been processed. Payment ID: ${paymentId}`,
+    });
     clearBasket();
+    setShowPaymentModal(false);
+    setOrderId(null);
+  };
+
+  const handlePaymentError = (error: string) => {
+    toast({
+      title: 'Payment Error',
+      description: error,
+      variant: 'destructive',
+    });
   };
 
   return (
@@ -127,10 +184,18 @@ export function Basket() {
                 </div>
                 <Button
                   onClick={handleCheckout}
-                  className="w-full bg-gradient-to-r from-foreground via-foreground/80 to-foreground text-background hover:opacity-90 transition-opacity"
+                  disabled={isProcessing}
+                  className="w-full bg-gradient-to-r from-foreground via-foreground/80 to-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50"
                   size="lg"
                 >
-                  Checkout
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    'Checkout'
+                  )}
                 </Button>
                 <Button
                   variant="outline"
@@ -144,6 +209,23 @@ export function Basket() {
           )}
         </div>
       </SheetContent>
+      
+      {orderId && (
+        <PaymentModal
+          open={showPaymentModal}
+          onOpenChange={setShowPaymentModal}
+          orderId={orderId}
+          amount={total}
+          currency="INR"
+          items={items.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          }))}
+          onSuccess={handlePaymentSuccess}
+          onError={handlePaymentError}
+        />
+      )}
     </Sheet>
   );
 }

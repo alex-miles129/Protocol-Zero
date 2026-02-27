@@ -56,13 +56,13 @@ export default function StorePage() {
         {/* Header with Basket */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div className="flex-1">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground via-foreground/80 to-foreground bg-clip-text text-transparent mb-4">
-              Support the Server
-            </h1>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground via-foreground/80 to-foreground bg-clip-text text-transparent mb-4">
+            Support the Server
+          </h1>
             <p className="text-foreground/70 max-w-2xl">
-              Support Protocol: Zero and enhance your gameplay experience with exclusive perks and features.
-              All purchases help us maintain and improve the server.
-            </p>
+            Support Protocol: Zero and enhance your gameplay experience with exclusive perks and features.
+            All purchases help us maintain and improve the server.
+          </p>
           </div>
           <div className="flex-shrink-0">
             <Basket />
@@ -70,10 +70,10 @@ export default function StorePage() {
         </div>
 
         <div className="mt-8 p-4 bg-foreground/5 rounded-lg border border-foreground/20">
-          <p className="text-sm text-foreground/70">
-            Note: These are Just For Show Here To Buy Go to Our Tebex page <a href="https://crimetownrp.tebex.io/" className="text-primary hover:underline">https://crimetownrp.tebex.io/</a>.
-          </p>
-        </div>
+            <p className="text-sm text-foreground/70">
+              Note: These are Just For Show Here To Buy Go to Our Tebex page <a href="https://crimetownrp.tebex.io/" className="text-primary hover:underline">https://crimetownrp.tebex.io/</a>.
+            </p>
+          </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8 w-full">
           <div className="mb-6">
@@ -114,58 +114,58 @@ export default function StorePage() {
           </TabsContent>
 
           <TabsContent value="other" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {storeItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-background/50 border border-border/40 rounded-lg overflow-hidden hover:border-foreground/40 transition-colors"
-                >
-                  <div className="relative h-48">
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      className="object-cover"
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {storeItems.map((item) => (
+            <div
+              key={item.id}
+              className="bg-background/50 border border-border/40 rounded-lg overflow-hidden hover:border-foreground/40 transition-colors"
+            >
+              <div className="relative h-48">
+                <Image
+                  src={item.image}
+                  alt={item.name}
+                  fill
+                  className="object-cover"
                       unoptimized
-                    />
-                  </div>
-                  <div className="p-6 space-y-4">
-                    <div className="space-y-2">
-                      <h3 className="text-2xl font-semibold">{item.name}</h3>
-                      <p className="text-foreground/70">{item.description}</p>
-                    </div>
-                    <ul className="space-y-2">
-                      {item.features.map((feature, index) => (
-                        <li key={index} className="flex items-center text-sm text-foreground/70">
-                          <svg
-                            className="w-4 h-4 mr-2 text-foreground"
-                            fill="none"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path d="M5 13l4 4L19 7"></path>
-                          </svg>
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="pt-4 flex items-center justify-between border-t border-border/40">
-                      <span className="text-2xl font-bold bg-gradient-to-r from-foreground via-foreground/80 to-foreground bg-clip-text text-transparent">
-                        {item.price}
-                      </span>
-                      <Button
-                        className="bg-gradient-to-r from-foreground via-foreground/80 to-foreground text-background hover:opacity-90 transition-opacity"
-                      >
-                        Purchase
-                      </Button>
-                    </div>
-                  </div>
+                />
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-semibold">{item.name}</h3>
+                  <p className="text-foreground/70">{item.description}</p>
                 </div>
-              ))}
+                <ul className="space-y-2">
+                  {item.features.map((feature, index) => (
+                    <li key={index} className="flex items-center text-sm text-foreground/70">
+                      <svg
+                        className="w-4 h-4 mr-2 text-foreground"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path d="M5 13l4 4L19 7"></path>
+                      </svg>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+                <div className="pt-4 flex items-center justify-between border-t border-border/40">
+                  <span className="text-2xl font-bold bg-gradient-to-r from-foreground via-foreground/80 to-foreground bg-clip-text text-transparent">
+                    {item.price}
+                  </span>
+                  <Button
+                    className="bg-gradient-to-r from-foreground via-foreground/80 to-foreground text-background hover:opacity-90 transition-opacity"
+                  >
+                    Purchase
+                  </Button>
+                </div>
+              </div>
             </div>
+          ))}
+        </div>
           </TabsContent>
         </Tabs>
 
@@ -181,4 +181,4 @@ export default function StorePage() {
       </div>
     </PageLayout>
   );
-}
+} 

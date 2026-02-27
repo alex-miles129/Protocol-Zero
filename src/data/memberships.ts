@@ -9,7 +9,7 @@ export const memberships: Membership[] = [
   {
     id: 'bronze',
     name: 'Bronze Membership',
-    price: 413.01,
+    price: 1,
     badgeIcon: 'bronze',
   },
   {
@@ -49,4 +49,3 @@ export const memberships: Membership[] = [
     badgeIcon: 'supreme',
   },
 ];
-
